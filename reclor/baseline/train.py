@@ -105,6 +105,18 @@ def main(args):
             att_mask = [int(token_id > 0) for token_id in opt]
             sen_attention_masks.append(att_mask)
         attention_masks.append(sen_attention_masks)
+
+    # Apply some ranking operation
+    #TODO
+
+    # Keep the best examples
+    num_examples = len(labels)
+    to_keep = int(num_examples * args.data_frac)
+    labels = labels[:to_keep]
+    input_ids = input_ids[:to_keep]
+    token_type_ids = token_type_ids[:to_keep]
+    attention_masks = attention_masks[:to_keep]
+
     # Convert to torch tensors
     labels = torch.tensor(labels)
     labels = labels.long().to(device)
@@ -117,8 +129,11 @@ def main(args):
 
     # Create the DataLoader for training set.
     train_data = TensorDataset(input_ids, token_type_ids, attention_masks, labels)
-    train_sampler = RandomSampler(train_data)
-    train_dataloader = DataLoader(train_data, sampler=train_sampler, batch_size=args.batch_size)
+    if args.ranking_type == 'random':
+        train_sampler = RandomSampler(train_data)
+        train_dataloader = DataLoader(train_data, sampler=train_sampler, batch_size=args.batch_size)
+    else:
+        train_dataloader = DataLoader(train_data, batch_size=args.batch_size, shuffle=False)
 
     model = ElectraForMultipleChoice.from_pretrained(electra_large).to(device)
 
