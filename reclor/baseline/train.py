@@ -52,6 +52,17 @@ def get_default_device():
     else:
         return torch.device('cpu')
 
+def rank(labels, input_ids, token_type_ids, attention_masks, ranking_type = 'random'):
+
+    if ranking_type == 'random':
+        combo = list(zip(labels, input_ids, token_type_ids, attention_masks))
+        random.shuffle(combo)
+        labels, input_ids, token_type_ids, attention_masks = zip(*combo)
+
+
+    return labels, input_ids, token_type_ids, attention_masks
+
+
 def main(args):
     if not os.path.isdir('CMDs'):
         os.mkdir('CMDs')
@@ -106,8 +117,11 @@ def main(args):
             sen_attention_masks.append(att_mask)
         attention_masks.append(sen_attention_masks)
 
+
+
     # Apply some ranking operation
-    #TODO
+    labels, input_ids, token_type_ids, attention_masks = rank(labels, input_ids, token_type_ids, attention_masks, ranking_type = args.ranking_type)
+
 
     # Keep the best examples
     num_examples = len(labels)
@@ -129,11 +143,9 @@ def main(args):
 
     # Create the DataLoader for training set.
     train_data = TensorDataset(input_ids, token_type_ids, attention_masks, labels)
-    if args.ranking_type == 'random':
-        train_sampler = RandomSampler(train_data)
-        train_dataloader = DataLoader(train_data, sampler=train_sampler, batch_size=args.batch_size)
-    else:
-        train_dataloader = DataLoader(train_data, batch_size=args.batch_size, shuffle=False)
+    train_sampler = RandomSampler(train_data)
+    train_dataloader = DataLoader(train_data, sampler=train_sampler, batch_size=args.batch_size)
+
 
     model = ElectraForMultipleChoice.from_pretrained(electra_large).to(device)
 
