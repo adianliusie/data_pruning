@@ -249,7 +249,7 @@ def main(args):
                     b_labs = batch[3].to(device)
                     outputs = model(input_ids=b_input_ids, attention_mask=b_att_msks, token_type_ids=b_tok_typ_ids, labels=b_labs)
                     loss = outputs[0]
-                    total_loss += loss.item()
+                    total_loss_val += loss.item()
                 avg_val_loss = total_loss_val / len(val_dataloader)
             print("  Average validation loss: {0:.2f}".format(avg_val_loss))
             if avg_val_loss < best_val_loss:
