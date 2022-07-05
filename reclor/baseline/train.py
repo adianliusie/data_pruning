@@ -18,6 +18,8 @@ from keras.preprocessing.sequence import pad_sequences
 from transformers import AdamW, ElectraConfig
 from transformers import get_linear_schedule_with_warmup
 
+from rankers.ranker import make_ranker
+
 MAXLEN = 256
 
 parser = argparse.ArgumentParser(description='Get all command line arguments.')
@@ -51,14 +53,21 @@ def get_default_device():
     else:
         return torch.device('cpu')
 
-def rank(labels, input_ids, token_type_ids, attention_masks, ranking_type = 'random'):
+def rank(labels, input_ids, token_type_ids, attention_masks, ranking_type = 'random', model=None):
 
     if ranking_type == 'random':
         combo = list(zip(labels, input_ids, token_type_ids, attention_masks))
         random.shuffle(combo)
         labels, input_ids, token_type_ids, attention_masks = zip(*combo)
+    else:
+        data = [{'inputs':[i, t, a], 'output':l} for i,t,a,l in zip(input_ids, token_type_ids, attention_masks, labels)]
+        ranker = make_ranker(ranking_type, model)
+        out_data = ranker.filter_data(data)
 
-
+        input_ids = [d['inputs'][0] for d in out_data]
+        token_type_ids = [d['inputs'][1] for d in out_data]
+        attention_masks = [d['inputs'][2] for d in out_data]
+        labels = [d['output'] for d in out_data]
     return labels, input_ids, token_type_ids, attention_masks
 
 
