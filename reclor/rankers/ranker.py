@@ -80,8 +80,11 @@ class LossPruner(ModelDataPruner):
     def __init__(self, seed_num:int=1, model_path=None, negate=False):
         super().__init__(seed_num, model_path)
         self.negate = negate
+        self.counter = 0
      
     def get_ex_score(self, ex)->float:
+        self.counter += 1
+        print(self.counter)
         inp_id, t_id, attn_m, label = self.tensor_prep(ex)
         outputs = self.model(input_ids=inp_id, attention_mask=attn_m, token_type_ids=t_id, labels=label)
         loss = outputs[0].item()
