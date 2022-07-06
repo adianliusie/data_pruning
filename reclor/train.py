@@ -54,7 +54,7 @@ def get_default_device():
     else:
         return torch.device('cpu')
 
-def rank(labels, input_ids, token_type_ids, attention_masks, ranking_type = 'random', model_path=None, ret_frac=1.0):
+def rank(labels, input_ids, token_type_ids, attention_masks, ranking_type = 'random', model_path=None, ret_frac=1.0, device=None):
 
     # if ranking_type == 'random':
     #     combo = list(zip(labels, input_ids, token_type_ids, attention_masks))
@@ -63,7 +63,7 @@ def rank(labels, input_ids, token_type_ids, attention_masks, ranking_type = 'ran
     # else:
     data = [{'inputs':[i, t, a], 'output':l} for i,t,a,l in zip(input_ids, token_type_ids, attention_masks, labels)]
     ranker = make_ranker(ranking_type, model_path=model_path)
-    out_data = ranker.filter_data(data, ret_frac=ret_frac)
+    out_data = ranker.filter_data(data, ret_frac=ret_frac, device=device)
 
     input_ids = [d['inputs'][0] for d in out_data]
     token_type_ids = [d['inputs'][1] for d in out_data]
@@ -159,7 +159,7 @@ def main(args):
         attention_masks_val.append(sen_attention_masks)
 
     # Apply some ranking operation
-    labels, input_ids, token_type_ids, attention_masks = rank(labels, input_ids, token_type_ids, attention_masks, ranking_type = args.ranking_type, model_path=args.ext_model_path, ret_frac=args.data_frac)
+    labels, input_ids, token_type_ids, attention_masks = rank(labels, input_ids, token_type_ids, attention_masks, ranking_type = args.ranking_type, model_path=args.ext_model_path, ret_frac=args.data_frac, device=device)
 
 
     # # Keep the best examples

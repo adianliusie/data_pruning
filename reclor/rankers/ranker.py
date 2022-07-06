@@ -10,13 +10,15 @@ import numpy as np
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
 
-def make_ranker(ranker_name:str, model_path=None, *args):
+from torch.utils.data import TensorDataset, DataLoader,
+
+def make_ranker(ranker_name:str, model_path=None, device=None, *args):
     if ranker_name == 'random':
         return RandomPruner(*args)
     elif ranker_name == 'loss':
-        return LossPruner(model_path=model_path)
+        return LossPruner(model_path=model_path, device=device)
     elif ranker_name == 'kmeans':
-        return KMeansPruner(model_path=model_path)
+        return KMeansPruner(model_path=model_path, device=device)
     else:
         raise ValueError("invalid ranking option")
 
@@ -44,10 +46,11 @@ class DataPruner():
         return self.filter_data(*args, **kwargs)
 
 class ModelDataPruner(DataPruner):
-    def __init__(self, seed_num:int=None, model_path=None):
+    def __init__(self, seed_num:int=None, model_path=None, device=None):
         super().__init__(seed_num)
         if model_path:
             self.model = torch.load(model_path, map_location=torch.device('cpu'))
+        self.device = device
     
     def filter_data(self, *args, **kwargs)->List:
         """ overwriting parent to free model gpu memory after use """
@@ -77,8 +80,8 @@ class RandomPruner(DataPruner):
 
 class LossPruner(ModelDataPruner):
     """ ranks all examples based on the loss of a model trained already on the examples """
-    def __init__(self, seed_num:int=1, model_path=None, negate=False):
-        super().__init__(seed_num, model_path)
+    def __init__(self, seed_num:int=1, model_path=None, negate=False, device=None):
+        super().__init__(seed_num, model_path=model_path, device=device)
         self.negate = negate
         self.counter = 0
      
@@ -99,15 +102,18 @@ class KMeansPruner(ModelDataPruner):
         K-Means clustering
         Select K samples (closest to each cluster mean)
     '''
-    def __init__(self, seed_num:int=1, model_path=None):
-        super().__init__(seed_num, model_path)
+    def __init__(self, seed_num:int=1, model_path=None, device=None):
+        super().__init__(seed_num, model_path=model_path, device=device)
 
      
     def filter_data(self, data:List, ret_frac:float, ncomps:int=10)->List:
         N = int(ret_frac*len(data))
         
         # Encoder embedding space
-        H = self.get_hidden_vecs(data)
+        if self.device:
+            H = self.get_hidden_vecs_batched(data)
+        else:
+            H = self.get_hidden_vecs(data)
 
         # PCA compression
         pca = PCA(n_components=ncomps)
@@ -143,6 +149,30 @@ class KMeansPruner(ModelDataPruner):
 
         emb = self.model.electra(input_ids=inp_id, attention_mask=att_msk, token_type_ids=tok_typ_id)[0]
         return emb.squeeze().detach.cpu()
+    
+    def get_hidden_vecs_batched(self, data, batch_size=32):
+        labels = [d['output'] for d in data]
+        input_ids = [d['inputs'][0][l_ind] for d,l_ind in zip(data, labels)]
+        token_type_ids = [d['inputs'][1][l_ind] for d,l_ind in zip(data, labels)]
+        attention_masks = [d['inputs'][2][l_ind] for d,l_ind in zip(data, labels)]
         
+        input_ids = torch.LongTensor(input_ids)
+        token_type_ids = torch.LongTensor(token_type_ids)
+        attention_masks = torch.LongTensor(attention_masks)
+
+        ds = TensorDataset(input_ids, token_type_ids, attention_masks)
+        dl = DataLoader(ds, batch_size=batch_size, shuffle=False)
+
+        self.model.to(self.device)
+        self.model.eval()
+        all_embs = []
+        for inp_id, tok_typ_id, att_msk in dl:
+            inp_id, tok_typ_id, att_msk = inp_id.to(self.device), tok_typ_id.to(self.device), att_msk.to(self.device)
+            with torch.no_grad():
+                embs = self.model.electra(input_ids=inp_id, attention_mask=att_msk, token_type_ids=tok_typ_id)[0]
+            all_embs.append(embs.detach().cpu())
+        H = torch.cat(all_embs)
+        return H
+    
 
 
