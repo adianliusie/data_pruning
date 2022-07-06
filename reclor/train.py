@@ -36,6 +36,7 @@ parser.add_argument('--val_interval', type=int, default=1, help='Epoch intervals
 parser.add_argument('--save_path', type=str, help='Load path to which best trained model will be saved')
 parser.add_argument('--ranking_type', type=str, default='random', help='Ranking order for training data')
 parser.add_argument('--data_frac', type=float, default=0.1, help='Specify the fraction of data to use')
+parser.add_argument('--ext_model_path', type=str, default=None, help='trained model to use for pruning')
 
 
 def format_time(elapsed):
@@ -53,7 +54,7 @@ def get_default_device():
     else:
         return torch.device('cpu')
 
-def rank(labels, input_ids, token_type_ids, attention_masks, ranking_type = 'random', model=None):
+def rank(labels, input_ids, token_type_ids, attention_masks, ranking_type = 'random', model_path=None):
 
     if ranking_type == 'random':
         combo = list(zip(labels, input_ids, token_type_ids, attention_masks))
@@ -61,7 +62,7 @@ def rank(labels, input_ids, token_type_ids, attention_masks, ranking_type = 'ran
         labels, input_ids, token_type_ids, attention_masks = zip(*combo)
     else:
         data = [{'inputs':[i, t, a], 'output':l} for i,t,a,l in zip(input_ids, token_type_ids, attention_masks, labels)]
-        ranker = make_ranker(ranking_type, model)
+        ranker = make_ranker(ranking_type, model_path)
         out_data = ranker.filter_data(data)
 
         input_ids = [d['inputs'][0] for d in out_data]
@@ -157,9 +158,8 @@ def main(args):
             sen_attention_masks.append(att_mask)
         attention_masks_val.append(sen_attention_masks)
 
-
     # Apply some ranking operation
-    labels, input_ids, token_type_ids, attention_masks = rank(labels, input_ids, token_type_ids, attention_masks, ranking_type = args.ranking_type)
+    labels, input_ids, token_type_ids, attention_masks = rank(labels, input_ids, token_type_ids, attention_masks, ranking_type = args.ranking_type, model=args.ext_model_path)
 
 
     # Keep the best examples

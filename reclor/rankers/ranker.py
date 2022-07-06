@@ -10,13 +10,13 @@ import numpy as np
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
 
-def make_ranker(ranker_name:str, model=None, *args):
+def make_ranker(ranker_name:str, model_path=None, *args):
     if ranker_name == 'random':
         return RandomPruner(*args)
     elif ranker_name == 'loss':
-        return LossPruner(model)
+        return LossPruner(model_path)
     elif ranker_name == 'kmeans':
-        return KMeansPruner(model)
+        return KMeansPruner(model_path)
     else:
         raise ValueError("invalid ranking option")
 
@@ -44,9 +44,10 @@ class DataPruner():
         return self.filter_data(*args, **kwargs)
 
 class ModelDataPruner(DataPruner):
-    def __init__(self, seed_num:int=None, model=None):
+    def __init__(self, seed_num:int=None, model_path=None):
         super().__init__(seed_num)
-        self.model = model.to('cpu')
+        if model_path:
+            self.model = torch.load(model_path, map_location=torch.device('cpu'))
     
     def filter_data(self, *args, **kwargs)->List:
         """ overwriting parent to free model gpu memory after use """
@@ -76,8 +77,8 @@ class RandomPruner(DataPruner):
 
 class LossPruner(ModelDataPruner):
     """ ranks all examples based on the loss of a model trained already on the examples """
-    def __init__(self, seed_num:int=1, model=None, negate=False):
-        super().__init__(seed_num, model)
+    def __init__(self, seed_num:int=1, model_path=None, negate=False):
+        super().__init__(seed_num, model_path)
         self.negate = negate
      
     def get_ex_score(self, ex)->float:
@@ -95,8 +96,8 @@ class KMeansPruner(ModelDataPruner):
         K-Means clustering
         Select K samples (closest to each cluster mean)
     '''
-    def __init__(self, seed_num:int=1, model=None):
-        super().__init__(seed_num, model)
+    def __init__(self, seed_num:int=1, model_path=None):
+        super().__init__(seed_num, model_path)
 
      
     def filter_data(self, data:List, ret_frac:float, ncomps:int=10)->List:
