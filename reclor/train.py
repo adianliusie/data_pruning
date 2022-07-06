@@ -62,7 +62,7 @@ def rank(labels, input_ids, token_type_ids, attention_masks, ranking_type = 'ran
     #     labels, input_ids, token_type_ids, attention_masks = zip(*combo)
     # else:
     data = [{'inputs':[i, t, a], 'output':l} for i,t,a,l in zip(input_ids, token_type_ids, attention_masks, labels)]
-    ranker = make_ranker(ranking_type, model_path)
+    ranker = make_ranker(ranking_type, model_path=model_path)
     out_data = ranker.filter_data(data, ret_frac=ret_frac)
 
     input_ids = [d['inputs'][0] for d in out_data]
