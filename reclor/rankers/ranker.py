@@ -11,6 +11,7 @@ from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
 
 def make_ranker(ranker_name:str, model_path=None, *args):
+    print("in make ranker:", model_path)
     if ranker_name == 'random':
         return RandomPruner(*args)
     elif ranker_name == 'loss':
@@ -46,6 +47,7 @@ class DataPruner():
 class ModelDataPruner(DataPruner):
     def __init__(self, seed_num:int=None, model_path=None):
         super().__init__(seed_num)
+        print("in modeldatapruner:", model_path)
         if model_path:
             self.model = torch.load(model_path, map_location=torch.device('cpu'))
     
@@ -78,6 +80,7 @@ class RandomPruner(DataPruner):
 class LossPruner(ModelDataPruner):
     """ ranks all examples based on the loss of a model trained already on the examples """
     def __init__(self, seed_num:int=1, model_path=None, negate=False):
+        print("in losspruner:", model_path)
         super().__init__(seed_num, model_path)
         self.negate = negate
      
