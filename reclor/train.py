@@ -54,21 +54,21 @@ def get_default_device():
     else:
         return torch.device('cpu')
 
-def rank(labels, input_ids, token_type_ids, attention_masks, ranking_type = 'random', model_path=None):
+def rank(labels, input_ids, token_type_ids, attention_masks, ranking_type = 'random', model_path=None, ret_frac=1.0):
 
-    if ranking_type == 'random':
-        combo = list(zip(labels, input_ids, token_type_ids, attention_masks))
-        random.shuffle(combo)
-        labels, input_ids, token_type_ids, attention_masks = zip(*combo)
-    else:
-        data = [{'inputs':[i, t, a], 'output':l} for i,t,a,l in zip(input_ids, token_type_ids, attention_masks, labels)]
-        ranker = make_ranker(ranking_type, model_path)
-        out_data = ranker.filter_data(data)
+    # if ranking_type == 'random':
+    #     combo = list(zip(labels, input_ids, token_type_ids, attention_masks))
+    #     random.shuffle(combo)
+    #     labels, input_ids, token_type_ids, attention_masks = zip(*combo)
+    # else:
+    data = [{'inputs':[i, t, a], 'output':l} for i,t,a,l in zip(input_ids, token_type_ids, attention_masks, labels)]
+    ranker = make_ranker(ranking_type, model_path)
+    out_data = ranker.filter_data(data, ret_frac=ret_frac)
 
-        input_ids = [d['inputs'][0] for d in out_data]
-        token_type_ids = [d['inputs'][1] for d in out_data]
-        attention_masks = [d['inputs'][2] for d in out_data]
-        labels = [d['output'] for d in out_data]
+    input_ids = [d['inputs'][0] for d in out_data]
+    token_type_ids = [d['inputs'][1] for d in out_data]
+    attention_masks = [d['inputs'][2] for d in out_data]
+    labels = [d['output'] for d in out_data]
     return labels, input_ids, token_type_ids, attention_masks
 
 
@@ -159,16 +159,16 @@ def main(args):
         attention_masks_val.append(sen_attention_masks)
 
     # Apply some ranking operation
-    labels, input_ids, token_type_ids, attention_masks = rank(labels, input_ids, token_type_ids, attention_masks, ranking_type = args.ranking_type, model_path=args.ext_model_path)
+    labels, input_ids, token_type_ids, attention_masks = rank(labels, input_ids, token_type_ids, attention_masks, ranking_type = args.ranking_type, model_path=args.ext_model_path, ret_frac=args.data_frac)
 
 
-    # Keep the best examples
-    num_examples = len(labels)
-    to_keep = int(num_examples * args.data_frac)
-    labels = labels[:to_keep]
-    input_ids = input_ids[:to_keep]
-    token_type_ids = token_type_ids[:to_keep]
-    attention_masks = attention_masks[:to_keep]
+    # # Keep the best examples
+    # num_examples = len(labels)
+    # to_keep = int(num_examples * args.data_frac)
+    # labels = labels[:to_keep]
+    # input_ids = input_ids[:to_keep]
+    # token_type_ids = token_type_ids[:to_keep]
+    # attention_masks = attention_masks[:to_keep]
 
     # Convert to torch tensors
     labels = torch.tensor(labels)
