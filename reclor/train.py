@@ -159,7 +159,7 @@ def main(args):
         attention_masks_val.append(sen_attention_masks)
 
     # Apply some ranking operation
-    labels, input_ids, token_type_ids, attention_masks = rank(labels, input_ids, token_type_ids, attention_masks, ranking_type = args.ranking_type, model=args.ext_model_path)
+    labels, input_ids, token_type_ids, attention_masks = rank(labels, input_ids, token_type_ids, attention_masks, ranking_type = args.ranking_type, model_path=args.ext_model_path)
 
 
     # Keep the best examples
