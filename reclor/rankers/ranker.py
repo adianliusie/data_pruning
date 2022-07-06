@@ -10,7 +10,7 @@ import numpy as np
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
 
-from torch.utils.data import TensorDataset, DataLoader,
+from torch.utils.data import TensorDataset, DataLoader
 
 def make_ranker(ranker_name:str, model_path=None, device=None, *args):
     if ranker_name == 'random':
@@ -166,7 +166,8 @@ class KMeansPruner(ModelDataPruner):
         self.model.to(self.device)
         self.model.eval()
         all_embs = []
-        for inp_id, tok_typ_id, att_msk in dl:
+        for i, (inp_id, tok_typ_id, att_msk) in enumerate(dl):
+            print(f'On {i}/{len(dl)}')
             inp_id, tok_typ_id, att_msk = inp_id.to(self.device), tok_typ_id.to(self.device), att_msk.to(self.device)
             with torch.no_grad():
                 embs = self.model.electra(input_ids=inp_id, attention_mask=att_msk, token_type_ids=tok_typ_id)[0]
