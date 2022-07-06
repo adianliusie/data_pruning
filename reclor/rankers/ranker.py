@@ -59,9 +59,9 @@ class ModelDataPruner(DataPruner):
     @staticmethod
     def tensor_prep(ex:dict):
         label = torch.LongTensor([ex['output']])
-        inp_id = torch.LongTensor([ex['input'][0]])
-        t_id = torch.LongTensor([ex['input'][1]])
-        attn_m = torch.LongTensor([ex['input'][2]])
+        inp_id = torch.LongTensor([ex['inputs'][0]])
+        t_id = torch.LongTensor([ex['inputs'][1]])
+        attn_m = torch.LongTensor([ex['inputs'][2]])
         return inp_id, t_id, attn_m, label
     
 ### Basic Rankers ###############################################################
