@@ -107,14 +107,18 @@ class KMeansPruner(ModelDataPruner):
 
      
     def filter_data(self, data:List, ret_frac:float, ncomps:int=10)->List:
-        N = int(ret_frac*len(data))
+        # temp
+        data = data[:64]
         
+        N = int(ret_frac*len(data))
+
         # Encoder embedding space
         if self.device:
             H = self.get_hidden_vecs_batched(data)
         else:
             H = self.get_hidden_vecs(data)
 
+        print("size", H.size())
         # PCA compression
         pca = PCA(n_components=ncomps)
         compressed = pca.fit_transform(H)
