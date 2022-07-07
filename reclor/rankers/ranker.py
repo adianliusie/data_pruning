@@ -108,7 +108,7 @@ class KMeansPruner(ModelDataPruner):
      
     def filter_data(self, data:List, ret_frac:float, ncomps:int=10)->List:
         # temp
-        data = data[:64]
+        data = data[:20]
         
         N = int(ret_frac*len(data))
 
@@ -154,7 +154,7 @@ class KMeansPruner(ModelDataPruner):
         emb = self.model.electra(input_ids=inp_id, attention_mask=att_msk, token_type_ids=tok_typ_id)[0]
         return emb.squeeze().detach.cpu()
     
-    def get_hidden_vecs_batched(self, data, batch_size=32):
+    def get_hidden_vecs_batched(self, data, batch_size=4):
         labels = [d['output'] for d in data]
         input_ids = [d['inputs'][0][l_ind] for d,l_ind in zip(data, labels)]
         token_type_ids = [d['inputs'][1][l_ind] for d,l_ind in zip(data, labels)]
@@ -175,7 +175,8 @@ class KMeansPruner(ModelDataPruner):
             inp_id, tok_typ_id, att_msk = inp_id.to(self.device), tok_typ_id.to(self.device), att_msk.to(self.device)
             with torch.no_grad():
                 embs = self.model.electra(input_ids=inp_id, attention_mask=att_msk, token_type_ids=tok_typ_id)[0]
-            all_embs.append(embs.detach().cpu())
+                embs_cls = embs[:,0,:]
+            all_embs.append(embs_cls.detach().cpu())
         H = torch.cat(all_embs)
         return H
     
