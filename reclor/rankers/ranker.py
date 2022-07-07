@@ -129,7 +129,7 @@ class KMeansPruner(ModelDataPruner):
         # Select closest to mean per cluster
         cluster_means = kmeans.cluster_centers_
         selected_inds = []
-        for k in N:
+        for k in range(N):
             mean_vector = cluster_means[k]
             diff_l2 = np.linalg.norm(compressed - mean_vector, axis=1)
             ind = np.argmin(diff_l2)
