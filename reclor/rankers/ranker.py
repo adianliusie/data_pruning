@@ -6,6 +6,7 @@ from typing import List
 from types import SimpleNamespace
 from copy import deepcopy
 import numpy as np
+from torch.nn import CrossEntropyLoss
 
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
@@ -67,6 +68,19 @@ class ModelDataPruner(DataPruner):
         attn_m = torch.LongTensor([ex['inputs'][2]])
         return inp_id, t_id, attn_m, label
     
+    @staticmethod
+    def dl_prep(labels:list, input_ids:list, token_type_ids:list, attention_masks:list, bs=32):
+        labels = torch.LongTensor(labels)
+        input_ids = torch.LongTensor(input_ids)
+        token_type_ids = torch.LongTensor(token_type_ids)
+        attention_masks = torch.LongTensor(attention_masks)
+    
+        ds = TensorDataset(input_ids, token_type_ids, attention_masks, labels)
+        dl = DataLoader(ds, batch_size=bs, shuffle=False)
+        return dl
+
+        
+    
 ### Basic Rankers ###############################################################
 
 class RandomPruner(DataPruner):
@@ -80,21 +94,57 @@ class RandomPruner(DataPruner):
 
 class LossPruner(ModelDataPruner):
     """ ranks all examples based on the loss of a model trained already on the examples """
-    def __init__(self, seed_num:int=1, model_path=None, negate=False, device=None):
+    def __init__(self, seed_num:int=1, model_path=None, reverse=False, device=None):
         super().__init__(seed_num, model_path=model_path, device=device)
-        self.negate = negate
+        self.reverse = reverse
         self.counter = 0
+    
+    def filter_data(self, data:List, ret_frac:float, batch_size=32) -> List:
+        if not self.device:
+            return super().filter_data(data=data, ret_frac=ret_frac)
+
+        N = int(ret_frac*len(data))
+        labels = [d['output'] for d in data]
+        input_ids = [d['inputs'][0] for d in data]
+        token_type_ids = [d['inputs'][1] for d in data]
+        attention_masks = [d['inputs'][2] for d in data]
+        
+        dl = self.dl_prep(labels, input_ids, token_type_ids, attention_masks, bs=batch_size) 
+
+        self.model.to(self.device)
+        self.model.eval()
+        all_logits = []
+        for i, (inp_id, tok_typ_id, att_msk, lab) in enumerate(dl):
+            # print(f'On {i}/{len(dl)}')
+            inp_id, tok_typ_id, att_msk = inp_id.to(self.device), tok_typ_id.to(self.device), att_msk.to(self.device)
+            with torch.no_grad():
+                outputs = self.model.electra(input_ids=inp_id, attention_mask=att_msk, token_type_ids=tok_typ_id, return_dict=True)
+                logits = outputs[1].detach().cpu()
+            all_logits.append(logits)
+        logits = torch.cat(all_logits)
+
+        # Get losses
+        loss_fct = CrossEntropyLoss()
+        all_losses = []
+        for i in range(logits):
+            logg = logits[i,:]
+            lab = labels[i]
+            all_losses.append(loss_fct(logg, lab))
+        losses=torch.cat(all_losses)
+        inds = torch.argsort(losses, descending=not self.reverse).tolist()
+        return [data[ind] for ind in inds]
      
     def get_ex_score(self, ex)->float:
         self.counter += 1
-        print(self.counter)
+        # print(self.counter)
         inp_id, t_id, attn_m, label = self.tensor_prep(ex)
         outputs = self.model(input_ids=inp_id, attention_mask=attn_m, token_type_ids=t_id, labels=label)
         loss = outputs[0].item()
-        if self.negate:
+        if self.reverse:
             loss = -1.*loss
         return float(loss)
         
+
 class KMeansPruner(ModelDataPruner):
     '''
         View samples in encoder embedding space
@@ -158,17 +208,12 @@ class KMeansPruner(ModelDataPruner):
         token_type_ids = [d['inputs'][1][l_ind] for d,l_ind in zip(data, labels)]
         attention_masks = [d['inputs'][2][l_ind] for d,l_ind in zip(data, labels)]
         
-        input_ids = torch.LongTensor(input_ids)
-        token_type_ids = torch.LongTensor(token_type_ids)
-        attention_masks = torch.LongTensor(attention_masks)
-
-        ds = TensorDataset(input_ids, token_type_ids, attention_masks)
-        dl = DataLoader(ds, batch_size=batch_size, shuffle=False)
+        dl = self.dl_prep(labels, input_ids, token_type_ids, attention_masks, bs=batch_size) 
 
         self.model.to(self.device)
         self.model.eval()
         all_embs = []
-        for i, (inp_id, tok_typ_id, att_msk) in enumerate(dl):
+        for i, (inp_id, tok_typ_id, att_msk, _) in enumerate(dl):
             # print(f'On {i}/{len(dl)}')
             inp_id, tok_typ_id, att_msk = inp_id.to(self.device), tok_typ_id.to(self.device), att_msk.to(self.device)
             with torch.no_grad():
