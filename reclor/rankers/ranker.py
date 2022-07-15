@@ -148,7 +148,7 @@ class LossPruner(ModelDataPruner):
                 loss = outputs[0].item()
             all_losses.append(loss)
 
-        losses=torch.cat(all_losses)
+        losses=torch.FloatTensor(all_losses)
         inds = torch.argsort(losses, descending=not self.reverse).tolist()
         return [data[ind] for ind in inds]
      
