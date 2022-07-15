@@ -121,7 +121,9 @@ class LossPruner(ModelDataPruner):
                 outputs = self.model(input_ids=inp_id, attention_mask=att_msk, token_type_ids=tok_typ_id)
                 logits = outputs[0].detach().cpu()
             all_logits.append(logits)
+            print("Got curr logits")
         logits = torch.cat(all_logits)
+        print("Getting losses now")
 
         # Get losses
         loss_fct = CrossEntropyLoss()
