@@ -118,8 +118,8 @@ class LossPruner(ModelDataPruner):
             # print(f'On {i}/{len(dl)}')
             inp_id, tok_typ_id, att_msk = inp_id.to(self.device), tok_typ_id.to(self.device), att_msk.to(self.device)
             with torch.no_grad():
-                outputs = self.model.electra(input_ids=inp_id, attention_mask=att_msk, token_type_ids=tok_typ_id, return_dict=True)
-                logits = outputs[1].detach().cpu()
+                outputs = self.model(input_ids=inp_id, attention_mask=att_msk, token_type_ids=tok_typ_id)
+                logits = outputs[0].detach().cpu()
             all_logits.append(logits)
         logits = torch.cat(all_logits)
 
