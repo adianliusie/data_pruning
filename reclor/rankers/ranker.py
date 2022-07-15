@@ -142,7 +142,7 @@ class LossPruner(ModelDataPruner):
         all_losses = []
         for i, (inp_id, tok_typ_id, att_msk, lab) in enumerate(dl):
             print(f'On {i}/{len(dl)}')
-            inp_id, tok_typ_id, att_msk = inp_id.to(self.device), tok_typ_id.to(self.device), att_msk.to(self.device)
+            inp_id, tok_typ_id, att_msk, lab = inp_id.to(self.device), tok_typ_id.to(self.device), att_msk.to(self.device), lab.to(self.device)
             with torch.no_grad():
                 outputs = self.model(input_ids=inp_id, attention_mask=att_msk, token_type_ids=tok_typ_id, labels=lab)
                 loss = outputs[0].item()
@@ -150,7 +150,7 @@ class LossPruner(ModelDataPruner):
 
         losses=torch.FloatTensor(all_losses)
         inds = torch.argsort(losses, descending=not self.reverse).tolist()
-        return [data[ind] for ind in inds]
+        return [data[ind] for ind in inds][:N]
      
     def get_ex_score(self, ex)->float:
         self.counter += 1
