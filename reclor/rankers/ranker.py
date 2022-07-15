@@ -70,10 +70,14 @@ class ModelDataPruner(DataPruner):
     
     @staticmethod
     def dl_prep(labels:list, input_ids:list, token_type_ids:list, attention_masks:list, bs=32):
-        labels = torch.LongTensor(labels)
-        input_ids = torch.LongTensor(input_ids)
-        token_type_ids = torch.LongTensor(token_type_ids)
-        attention_masks = torch.LongTensor(attention_masks)
+        labels = torch.from_numpy(np.array(labels))
+        labels = labels.long()
+        input_ids = torch.from_numpy(np.array(input_ids))
+        input_ids = input_ids.long()
+        token_type_ids = torch.from_numpy(np.array(token_type_ids))
+        token_type_ids = token_type_ids.long()
+        attention_masks = torch.from_numpy(np.array(attention_masks))
+        attention_masks = attention_masks.long()
     
         ds = TensorDataset(input_ids, token_type_ids, attention_masks, labels)
         dl = DataLoader(ds, batch_size=bs, shuffle=False)
@@ -99,7 +103,7 @@ class LossPruner(ModelDataPruner):
         self.reverse = reverse
         self.counter = 0
     
-    def filter_data(self, data:List, ret_frac:float, batch_size=32) -> List:
+    def filter_data(self, data:List, ret_frac:float, batch_size=1) -> List:
         if not self.device:
             return super().filter_data(data=data, ret_frac=ret_frac)
 
@@ -113,25 +117,37 @@ class LossPruner(ModelDataPruner):
 
         self.model.to(self.device)
         self.model.eval()
-        all_logits = []
+
+
+        # all_logits = []
+        # for i, (inp_id, tok_typ_id, att_msk, lab) in enumerate(dl):
+        #     print(f'On {i}/{len(dl)}')
+        #     inp_id, tok_typ_id, att_msk = inp_id.to(self.device), tok_typ_id.to(self.device), att_msk.to(self.device)
+        #     with torch.no_grad():
+        #         outputs = self.model(input_ids=inp_id, attention_mask=att_msk, token_type_ids=tok_typ_id)
+        #         logits = outputs[0].detach().cpu()
+        #     all_logits.append(logits)
+        #     print("Got curr logits")
+        # logits = torch.cat(all_logits)
+        # print("Getting losses now")
+
+        # # Get losses
+        # loss_fct = CrossEntropyLoss()
+        # all_losses = []
+        # for i in range(logits.size(0)):
+        #     logg = logits[i,:]
+        #     lab = torch.LongTensor(labels[i]).unsqueeze(dim=0)
+        #     all_losses.append(loss_fct(logg, lab))
+
+        all_losses = []
         for i, (inp_id, tok_typ_id, att_msk, lab) in enumerate(dl):
             print(f'On {i}/{len(dl)}')
             inp_id, tok_typ_id, att_msk = inp_id.to(self.device), tok_typ_id.to(self.device), att_msk.to(self.device)
             with torch.no_grad():
-                outputs = self.model(input_ids=inp_id, attention_mask=att_msk, token_type_ids=tok_typ_id)
-                logits = outputs[0].detach().cpu()
-            all_logits.append(logits)
-            print("Got curr logits")
-        logits = torch.cat(all_logits)
-        print("Getting losses now")
+                outputs = self.model(input_ids=inp_id, attention_mask=att_msk, token_type_ids=tok_typ_id, labels=lab)
+                loss = outputs[0].item()
+            all_losses.append(loss)
 
-        # Get losses
-        loss_fct = CrossEntropyLoss()
-        all_losses = []
-        for i in range(logits.size(0)):
-            logg = logits[i,:]
-            lab = torch.LongTensor(labels[i]).unsqueeze(dim=0)
-            all_losses.append(loss_fct(logg, lab))
         losses=torch.cat(all_losses)
         inds = torch.argsort(losses, descending=not self.reverse).tolist()
         return [data[ind] for ind in inds]
