@@ -128,7 +128,7 @@ class LossPruner(ModelDataPruner):
         # Get losses
         loss_fct = CrossEntropyLoss()
         all_losses = []
-        for i in range(logits):
+        for i in range(logits.size(0)):
             logg = logits[i,:]
             lab = labels[i]
             all_losses.append(loss_fct(logg, lab))
