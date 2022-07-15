@@ -130,7 +130,7 @@ class LossPruner(ModelDataPruner):
         all_losses = []
         for i in range(logits.size(0)):
             logg = logits[i,:]
-            lab = torch.LongTensor(labels[i]).unsqueeze()
+            lab = torch.LongTensor(labels[i]).unsqueeze(dim=0)
             all_losses.append(loss_fct(logg, lab))
         losses=torch.cat(all_losses)
         inds = torch.argsort(losses, descending=not self.reverse).tolist()
